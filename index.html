@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Voice Book Studio</title>
+  
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <style>
+    :root {
+      /* Dark Mode (Default) */
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --border: #334155;
+      --accent: #38bdf8;
+      --accent-dim: rgba(56, 189, 248, 0.1);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --shadow: 0 10px 40px rgba(0,0,0,0.5);
+      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-book: "Georgia", serif;
+      --header-h: 60px;
+    }
+
+    /* Light Mode Variables */
+    body.light-mode {
+      --bg: #f1f5f9;
+      --panel: #ffffff;
+      --border: #e2e8f0;
+      --accent: #0ea5e9;
+      --accent-dim: rgba(14, 165, 233, 0.1);
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      margin: 0; padding: 0;
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-ui);
+      height: 100vh; width: 100vw;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    /* --- HEADER --- */
+    header {
+      height: var(--header-h); background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; flex-shrink: 0; z-index: 50;
+      transition: background 0.3s, border 0.3s;
+    }
+
+    .brand {
+      display: flex; align-items: center; gap: 8px;
+      font-weight: 700; font-size: 18px; color: var(--text-main);
+    }
+    .brand svg { color: var(--accent); }
+
+    .header-actions { display: flex; align-items: center; gap: 6px; }
+
+    /* Buttons */
+    .btn {
+      background: var(--panel); border: 1px solid var(--border); color: var(--text-main);
+      height: 36px; padding: 0 12px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn:hover { background: var(--accent-dim); border-color: var(--accent); }
+    .btn.accent { background: var(--accent); color: white; border: none; }
+    .btn.accent:hover { opacity: 0.9; }
+    .btn.icon-only { width: 36px; padding: 0; justify-content: center; }
+    .btn.ghost { background: transparent; border: none; color: var(--text-muted); }
+    .btn.ghost:hover { color: var(--accent); }
+    
+    #mobileMenuBtn { display: none; }
+
+    /* --- DROPDOWNS --- */
+    .dropdown { position: relative; }
+    .dropdown-menu {
+      position: absolute; top: 120%; right: 0;
+      background: var(--panel); border: 1px solid var(--border);
+      width: 300px; padding: 16px; border-radius: 12px;
+      box-shadow: var(--shadow);
+      display: none; flex-direction: column; gap: 12px; z-index: 100;
+    }
+    .dropdown-menu.show { display: flex; animation: fadeIn 0.15s ease-out; }
+    
+    .dropdown-menu label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
+    .dropdown-menu input {
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text-main); padding: 10px; border-radius: 6px; width: 100%; font-size: 14px;
+    }
+    .dropdown-menu input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+    /* --- LAYOUT --- */
+    .app-container {
+      display: flex; flex: 1; overflow: hidden; position: relative;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 280px; background: var(--bg); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; padding: 16px; gap: 20px;
+      flex-shrink: 0; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .sidebar-section h3 {
+      font-size: 11px; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 1px; margin: 0 0 12px 0; display: flex; align-items: center; gap: 6px;
+    }
+
+    .tree-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    .tree-item {
+      padding: 8px 10px; font-size: 13px; color: var(--text-muted);
+      border-radius: 6px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tree-item:hover { background: var(--accent-dim); color: var(--text-main); }
+    .tree-item.h1 { font-weight: 600; color: var(--text-main); }
+    .tree-item.h2 { padding-left: 20px; font-size: 12px; }
+
+    .status-pill {
+      background: var(--panel); padding: 8px 12px; border-radius: 20px;
+      display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted);
+      margin-top: 10px; border: 1px solid var(--border);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; transition: 0.3s; }
+    .dot.live { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+    /* WORKSPACE */
+    .workspace {
+      flex: 1; display: flex; flex-direction: column; position: relative;
+      background: var(--bg); min-width: 0;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex; border-bottom: 1px solid var(--border); background: var(--panel); padding: 0 10px;
+    }
+    .tab {
+      padding: 12px 20px; font-size: 13px; cursor: pointer; color: var(--text-muted);
+      background: transparent; border: none; position: relative;
+    }
+    .tab.active { color: var(--accent); font-weight: 600; }
+    .tab.active::after {
+      content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: var(--accent);
+    }
+
+    /* Views */
+    .view-panel {
+      position: absolute; inset: 0; display: none; flex-direction: column;
+    }
+    .view-panel.active { display: flex; }
+
+    /* Toolbar */
+    .toolbar {
+      padding: 8px 16px; border-bottom: 1px solid var(--border);
+      display: flex; gap: 8px; background: var(--panel);
+      overflow-x: auto; white-space: nowrap;
+      -ms-overflow-style: none; scrollbar-width: none;
+    }
+    .toolbar::-webkit-scrollbar { display: none; }
+    
+    .tool-group {
+      background: var(--bg); border-radius: 6px; display: flex; 
+      border: 1px solid var(--border); flex-shrink: 0;
+    }
+    .tool-btn {
+      background: transparent; border: none; color: var(--text-muted);
+      width: 36px; height: 32px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; border-right: 1px solid var(--border);
+    }
+    .tool-btn:last-child { border: none; }
+    .tool-btn:active, .tool-btn:hover { background: var(--accent-dim); color: var(--accent); }
+
+    /* Rich Text Editor */
+    #editor {
+      flex: 1; padding: 50px; overflow-y: auto; outline: none;
+      font-size: 18px; line-height: 1.8; color: var(--text-main); 
+      max-width: 850px; margin: 0 auto; width: 100%;
+      font-family: var(--font-book); /* Using Serif for writing feel */
+    }
+    #editor.empty::before {
+      content: "Start writing your masterpiece...";
+      color: var(--text-muted); font-style: italic; pointer-events: none; font-family: var(--font-ui);
+    }
+    #editor h1 { border-bottom: 2px solid var(--border); padding-bottom: 10px; color: var(--accent); margin-top: 50px; }
+    #editor h2 { color: var(--text-main); margin-top: 30px; }
+    #editor blockquote { 
+      border-left: 4px solid var(--accent); padding: 10px 20px; 
+      background: var(--accent-dim); color: var(--text-main); 
+      font-style: italic; margin: 20px 0; border-radius: 0 8px 8px 0;
+    }
+
+    /* Book Preview */
+    #bookPreview {
+      flex: 1; background: #334155; overflow: auto; padding: 40px 20px;
+      display: flex; flex-direction: column; align-items: center; gap: 30px;
+    }
+    body.light-mode #bookPreview { background: #e2e8f0; }
+
+    /* Page Styling */
+    .print-page {
+      background: white; color: black; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      position: relative; overflow: hidden; flex-shrink: 0;
+    }
+    .page-inner { padding: 2.5cm 2cm; height: 100%; font-family: var(--font-book); }
+    .page-inner p { font-size: 11pt; text-align: justify; line-height: 1.6; margin-bottom: 12pt; }
+    .page-inner h1 { font-size: 24pt; margin-bottom: 0.8em; page-break-after: avoid; }
+    .page-footer {
+      position: absolute; bottom: 1cm; width: 100%; text-align: center; font-size: 9pt; color: #666;
+    }
+
+    /* COVER PAGE STYLING */
+    .cover-content {
+      height: 100%; padding: 20px;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      text-align: center; border: 5px double #000;
+      margin: 1cm;
+    }
+    .cover-title { font-size: 32pt; font-weight: bold; margin-bottom: 10px; line-height: 1.2; }
+    .cover-subtitle { font-size: 16pt; font-style: italic; margin-bottom: 60px; color: #444; }
+    .cover-author { font-size: 14pt; font-weight: bold; margin-top: auto; }
+    .cover-date { font-size: 10pt; margin-top: 10px; color: #666; }
+
+    /* Page Sizes */
+    .size-a4 { width: 210mm; height: 297mm; }
+    .size-6x9 { width: 6in; height: 9in; }
+    .size-5x8 { width: 5in; height: 8in; }
+
+    /* --- MOBILE RESPONSIVE --- */
+    @media (max-width: 768px) {
+      header { padding: 0 12px; }
+      .brand span { display: none; }
+      .btn span { display: none; }
+      .btn.icon-only { width: 32px; }
+      #mobileMenuBtn { display: flex; }
+
+      .sidebar {
+        position: fixed; inset: 0; width: 100%; height: 100%; z-index: 200;
+        background: var(--bg); padding: 20px; 
+        transform: translateY(100%);
+      }
+      .sidebar.open { transform: translateY(0); }
+      
+      .sidebar-header {
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+      }
+      .close-sidebar {
+        background: var(--panel); border: none; color: var(--text-main); padding: 8px; border-radius: 50%;
+      }
+
+      #editor { padding: 20px; font-size: 16px; }
+      
+      .dropdown-menu {
+        position: fixed; top: auto; bottom: 0; left: 0; right: 0;
+        width: 100%; border-radius: 20px 20px 0 0; border: none;
+        border-top: 1px solid var(--border);
+        animation: slideUp 0.2s ease-out;
+      }
+      
+      #bookPreview { padding: 20px 10px; align-items: stretch; }
+      .print-page { width: 100% !important; height: auto !important; aspect-ratio: 0.7; }
+      .page-inner, .cover-content { padding: 20px; margin: 10px; border-width: 3px; }
+      .cover-title { font-size: 24pt; }
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+  </style>
+</head>
+<body class="dark-mode">
+
+  <!-- Hidden File Input -->
+  <input type="file" id="fileInput" accept=".book" style="display:none">
+
+  <header>
+    <div class="brand">
+      <button class="btn icon-only ghost" id="mobileMenuBtn"><i data-lucide="menu"></i></button>
+      <i data-lucide="mic" size="20"></i>
+      <span>Voice Studio</span>
+    </div>
+
+    <div class="header-actions">
+      <!-- Dark/Light Toggle -->
+      <button class="btn icon-only" id="themeBtn" title="Toggle Theme">
+        <i data-lucide="sun-moon" size="18"></i>
+      </button>
+
+      <!-- Visit Dear Link -->
+      <a href="https://dear.is-a.dev" target="_blank" class="btn icon-only" style="text-decoration:none; color:var(--danger); border-color:var(--danger);" title="Visit Dear">
+        <i data-lucide="heart" size="18" fill="var(--danger)"></i>
+      </a>
+
+      <div style="width:1px; height:20px; background:var(--border); margin:0 4px;"></div>
+
+      <button class="btn icon-only" id="undoBtn"><i data-lucide="undo-2" size="18"></i></button>
+      
+      <!-- Meta Dropdown -->
+      <div class="dropdown">
+        <button class="btn icon-only" id="metaBtn"><i data-lucide="settings-2" size="18"></i></button>
+        <div class="dropdown-menu" id="metaMenu">
+          <label>Book Title</label>
+          <input type="text" id="metaTitle" placeholder="The Great Journey">
+          <label>Subtitle</label>
+          <input type="text" id="metaSubtitle" placeholder="A Story of Courage">
+          <label>Author Name</label>
+          <input type="text" id="metaAuthor" placeholder="Writer Name">
+          <label>Publication Date</label>
+          <input type="date" id="metaDate">
+          <button class="btn accent" style="justify-content:center; margin-top:10px;" id="metaDone">Save Details</button>
+        </div>
+      </div>
+
+      <!-- Export Dropdown -->
+      <div class="dropdown">
+        <button class="btn accent" id="exportMenuBtn">
+          <i data-lucide="download" size="18"></i> <span>Export</span>
+        </button>
+        <div class="dropdown-menu" id="exportMenu" style="width:200px;">
+          <button class="btn" id="expPdf"><i data-lucide="file-text"></i> PDF (Print)</button>
+          <button class="btn" id="expWord"><i data-lucide="file-type-2"></i> Word (.doc)</button>
+          <button class="btn" id="expTxt"><i data-lucide="file-code"></i> Text (.txt)</button>
+          <div style="height:1px; background:var(--border); margin:5px 0;"></div>
+          <button class="btn" id="saveProject"><i data-lucide="save"></i> Save Project</button>
+          <button class="btn" id="openProject"><i data-lucide="folder-open"></i> Open Project</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-container">
+    
+    <!-- Sidebar / Drawer -->
+    <aside class="sidebar" id="appSidebar">
+      <div class="sidebar-header" style="display:none;">
+        <h3 style="margin:0; font-size:18px;">Menu</h3>
+        <button class="close-sidebar" id="closeSidebar"><i data-lucide="x"></i></button>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>Dictation Controls</h3>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <button class="btn accent" id="startRec" style="justify-content:center; height:40px;">
+            <i data-lucide="mic"></i> Start
+          </button>
+          <button class="btn" id="stopRec" style="justify-content:center; height:40px; background:var(--danger); color:white; border:none;">
+            Stop
+          </button>
+        </div>
+        <div class="status-pill" id="micStatus">
+          <div class="dot"></div> Ready to listen
+        </div>
+      </div>
+
+      <div class="sidebar-section" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+        <h3>Chapters & Navigation</h3>
+        <div class="tree-container" id="navTree">
+          <div style="text-align:center; padding:20px; font-style:italic; color:var(--text-muted); font-size:12px;">
+            Headings appear here...
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:11px; color:var(--text-muted); text-align:center;">
+        <span id="wordCount">0 words</span>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="workspace">
+      <div class="tabs">
+        <button class="tab active" data-view="editor">Editor</button>
+        <button class="tab" data-view="book">Book View</button>
+      </div>
+
+      <!-- Editor Panel -->
+      <div class="view-panel active" id="view-editor">
+        <div class="toolbar">
+          <div class="tool-group">
+            <button class="tool-btn" data-cmd="bold"><i data-lucide="bold" size="16"></i></button>
+            <button class="tool-btn" data-cmd="italic"><i data-lucide="italic" size="16"></i></button>
+            <button class="tool-btn" data-cmd="underline"><i data-lucide="underline" size="16"></i></button>
+          </div>
+          <div class="tool-group">
+            <button class="tool-btn" data-cmd="formatBlock" data-val="H1" style="font-weight:700; font-size:14px;">H1</button>
+            <button class="tool-btn" data-cmd="formatBlock" data-val="H2" style="font-weight:700; font-size:12px;">H2</button>
+            <button class="tool-btn" data-cmd="formatBlock" data-val="p">¶</button>
+            <button class="tool-btn" data-cmd="formatBlock" data-val="blockquote"><i data-lucide="quote" size="14"></i></button>
+          </div>
+          <div class="tool-group">
+            <button class="tool-btn" data-cmd="justifyLeft"><i data-lucide="align-left" size="16"></i></button>
+            <button class="tool-btn" data-cmd="justifyCenter"><i data-lucide="align-center" size="16"></i></button>
+          </div>
+        </div>
+        
+        <div id="editor" contenteditable="true" class="empty"></div>
+      </div>
+
+      <!-- Book Preview Panel -->
+      <div class="view-panel" id="view-book">
+        <div style="padding:10px; background:var(--panel); border-bottom:1px solid var(--border); display:flex; justify-content:center; gap:10px; color:var(--text-muted); font-size:12px;">
+          Format: 
+          <select id="sizeSelect" style="background:var(--bg); color:var(--text-main); border:1px solid var(--border); border-radius:4px;">
+            <option value="size-a4">A4</option>
+            <option value="size-6x9">6 x 9"</option>
+            <option value="size-5x8">5 x 8"</option>
+          </select>
+        </div>
+        <div id="bookPreview"></div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <script>
+    // --- 1. SETUP & UI LOGIC ---
+    lucide.createIcons();
+
+    // Theme Toggle
+    const themeBtn = document.getElementById('themeBtn');
+    themeBtn.onclick = () => {
+      document.body.classList.toggle('light-mode');
+    };
+
+    // Mobile Sidebar
+    const sidebar = document.getElementById('appSidebar');
+    document.getElementById('mobileMenuBtn').onclick = () => {
+      sidebar.classList.add('open');
+      document.querySelector('.sidebar-header').style.display = 'flex';
+    };
+    document.getElementById('closeSidebar').onclick = () => sidebar.classList.remove('open');
+
+    // Dropdowns
+    function setupDropdown(btnId, menuId) {
+      const btn = document.getElementById(btnId);
+      const menu = document.getElementById(menuId);
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.dropdown-menu').forEach(m => {
+          if(m.id !== menuId) m.classList.remove('show');
+        });
+        menu.classList.toggle('show');
+      };
+      menu.onclick = (e) => e.stopPropagation();
+    }
+    setupDropdown('metaBtn', 'metaMenu');
+    setupDropdown('exportMenuBtn', 'exportMenu');
+    document.getElementById('metaDone').onclick = () => document.getElementById('metaMenu').classList.remove('show');
+    window.onclick = () => document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+
+    // --- 2. EDITOR ENGINE ---
+    const editor = document.getElementById('editor');
+    const navTree = document.getElementById('navTree');
+    const wordCountDisplay = document.getElementById('wordCount');
+    
+    let state = {
+      meta: { title: "", subtitle: "", author: "", date: "" },
+      chapterCount: 1
+    };
+
+    // State Binding
+    ['metaTitle', 'metaSubtitle', 'metaAuthor', 'metaDate'].forEach(id => {
+      document.getElementById(id).oninput = (e) => {
+        const key = id.replace('meta', '').toLowerCase();
+        state.meta[key] = e.target.value;
+      };
+    });
+
+    // Formatting Toolbar
+    document.querySelectorAll('.tool-btn').forEach(b => {
+      b.onclick = (e) => {
+        e.preventDefault();
+        document.execCommand(b.dataset.cmd, false, b.dataset.val);
+        editor.focus();
+      };
+    });
+
+    editor.addEventListener('input', () => {
+      if(editor.innerText.trim().length === 0) editor.classList.add('empty');
+      else editor.classList.remove('empty');
+      
+      const text = editor.innerText || "";
+      wordCountDisplay.innerText = (text.trim().length === 0 ? 0 : text.trim().split(/\s+/).length) + " words";
+      updateNavTree();
+    });
+
+    function updateNavTree() {
+      const headings = editor.querySelectorAll('h1, h2');
+      navTree.innerHTML = '';
+      if(headings.length === 0) {
+        navTree.innerHTML = '<div style="text-align:center; padding:10px; font-style:italic; color:var(--text-muted); font-size:12px;">No headings yet</div>';
+        return;
+      }
+      state.chapterCount = editor.querySelectorAll('h1').length + 1;
+      headings.forEach(h => {
+        const item = document.createElement('div');
+        item.className = `tree-item ${h.tagName.toLowerCase()}`;
+        item.innerText = h.innerText || "Untitled";
+        item.onclick = () => {
+          h.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if(window.innerWidth < 768) sidebar.classList.remove('open');
+        };
+        navTree.appendChild(item);
+      });
+    }
+
+    // --- 3. VOICE ENGINE ---
+    let recognition;
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SR();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => document.getElementById('micStatus').innerHTML = '<div class="dot live"></div> Listening...';
+      recognition.onend = () => document.getElementById('micStatus').innerHTML = '<div class="dot"></div> Paused';
+      recognition.onresult = (e) => {
+        const t = e.results[e.results.length-1][0].transcript;
+        processDictation(t);
+      };
+    }
+
+    document.getElementById('startRec').onclick = () => { if(recognition) recognition.start(); else alert("Browser not supported"); };
+    document.getElementById('stopRec').onclick = () => { if(recognition) recognition.stop(); };
+
+    function processDictation(text) {
+      const lower = text.toLowerCase().trim();
+      if(lower.startsWith('chapter')) {
+        const title = text.replace(/chapter/i, '').trim();
+        const html = `<h1>Chapter ${state.chapterCount}: ${title.charAt(0).toUpperCase() + title.slice(1)}</h1><p><br></p>`;
+        document.execCommand('insertHTML', false, html);
+        updateNavTree();
+        return;
+      }
+      const map = { 'new line': '<br>', 'newline': '<br>', 'period': '.', 'comma': ',', 'quote': '"' };
+      let output = map[lower] || (lower.charAt(0).toUpperCase() + lower.slice(1));
+      if(!map[lower] && !editor.innerText.endsWith(' ')) output = ' ' + output;
+      document.execCommand('insertHTML', false, output);
+    }
+
+    // --- 4. BOOK RENDER ENGINE (With Cover Page) ---
+    document.querySelectorAll('.tab').forEach(t => {
+      t.onclick = () => {
+        document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.view-panel').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        document.getElementById('view-' + t.dataset.view).classList.add('active');
+        if(t.dataset.view === 'book') renderBook();
+      };
+    });
+
+    document.getElementById('sizeSelect').onchange = renderBook;
+
+    function renderBook() {
+      const container = document.getElementById('bookPreview');
+      const sizeClass = document.getElementById('sizeSelect').value;
+      container.innerHTML = '';
+
+      // 1. Generate Cover Page
+      const cover = document.createElement('div');
+      cover.className = `print-page ${sizeClass}`;
+      cover.innerHTML = `
+        <div class="cover-content">
+          <div class="cover-title">${state.meta.title || "Untitled Book"}</div>
+          <div class="cover-subtitle">${state.meta.subtitle || ""}</div>
+          <div style="flex:1"></div>
+          <div class="cover-author">${state.meta.author || "Unknown Author"}</div>
+          <div class="cover-date">${state.meta.date || new Date().toISOString().split('T')[0]}</div>
+        </div>
+      `;
+      container.appendChild(cover);
+
+      // 2. Content Pages
+      const temp = document.createElement('div');
+      temp.innerHTML = editor.innerHTML;
+      const nodes = Array.from(temp.children);
+
+      let pageNum = 1;
+      let curPage = createPage(sizeClass, pageNum);
+      let content = curPage.querySelector('.page-inner');
+      container.appendChild(curPage);
+
+      nodes.forEach(node => {
+        let clone = node.cloneNode(true);
+        content.appendChild(clone);
+        if(content.scrollHeight > content.clientHeight) {
+          content.removeChild(clone);
+          pageNum++;
+          curPage = createPage(sizeClass, pageNum);
+          content = curPage.querySelector('.page-inner');
+          container.appendChild(curPage);
+          content.appendChild(clone);
+        }
+      });
+    }
+
+    function createPage(cls, num) {
+      const div = document.createElement('div');
+      div.className = `print-page ${cls}`;
+      div.innerHTML = `<div class="page-inner"></div><div class="page-footer">${state.meta.title || "Untitled"} • ${num}</div>`;
+      return div;
+    }
+
+    // --- 5. EXPORTS ---
+    document.getElementById('expPdf').onclick = async () => {
+      await renderBook();
+      const pages = document.querySelectorAll('.print-page');
+      const container = document.createElement('div');
+      
+      pages.forEach(p => {
+        const clone = p.cloneNode(true);
+        clone.style.width = getComputedStyle(p).width; 
+        clone.style.height = getComputedStyle(p).height;
+        container.appendChild(clone);
+      });
+
+      const sizeVal = document.getElementById('sizeSelect').value;
+      const format = sizeVal === 'size-a4' ? 'a4' : (sizeVal === 'size-6x9' ? [6,9] : [5,8]);
+
+      html2pdf().set({
+        margin: 0,
+        filename: `${state.meta.title || 'book'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: typeof format === 'string'?'mm':'in', format: format, orientation: 'portrait' }
+      }).from(container).save();
+    };
+
+    document.getElementById('expWord').onclick = () => {
+      const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body>";
+      const footer = "</body></html>";
+      // Inject Title page info
+      const titleInfo = `<div style="text-align:center; margin-bottom:50px;"><h1>${state.meta.title}</h1><h2>${state.meta.subtitle}</h2><h3>${state.meta.author}</h3></div><br><hr><br>`;
+      const blob = new Blob(['\ufeff', header + titleInfo + editor.innerHTML + footer], { type: 'application/msword' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${state.meta.title}.doc`; a.click();
+    };
+
+    document.getElementById('expTxt').onclick = () => {
+      const info = `Title: ${state.meta.title}\nSubtitle: ${state.meta.subtitle}\nAuthor: ${state.meta.author}\nDate: ${state.meta.date}\n\n------------------\n\n`;
+      const blob = new Blob([info + editor.innerText], { type: 'text/plain' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${state.meta.title}.txt`; a.click();
+    };
+
+    // Project Persistence
+    document.getElementById('saveProject').onclick = () => {
+      const blob = new Blob([JSON.stringify({ content: editor.innerHTML, meta: state.meta })], {type: "application/json"});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "project.book"; a.click();
+    };
+    document.getElementById('openProject').onclick = () => document.getElementById('fileInput').click();
+    document.getElementById('fileInput').onchange = (e) => {
+      const f = e.target.files[0]; if(!f) return;
+      const r = new FileReader();
+      r.onload = (ev) => {
+        try {
+          const d = JSON.parse(ev.target.result);
+          editor.innerHTML = d.content;
+          state.meta = d.meta || state.meta;
+          // Update Inputs
+          document.getElementById('metaTitle').value = state.meta.title;
+          document.getElementById('metaSubtitle').value = state.meta.subtitle;
+          document.getElementById('metaAuthor').value = state.meta.author;
+          document.getElementById('metaDate').value = state.meta.date;
+          updateNavTree();
+          editor.classList.remove('empty');
+        } catch(x){ alert("Invalid file"); }
+      };
+      r.readAsText(f);
+    };
+
+  </script>
+</body>
+</html>
